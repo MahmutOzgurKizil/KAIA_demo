@@ -1,0 +1,26 @@
+Machine Learning Quiz
+
+1. What are the three main types of machine learning?
+   a) Supervised, Unsupervised, Reinforcement
+   b) Supervised, Unsupervised, Semi-Supervised
+   c) Supervised, Reinforcement, Deep Learning
+
+2. Which of the following is an example of supervised learning?
+   a) Customer segmentation
+   b) Email spam detection
+   c) Game playing
+
+3. What is the purpose of unsupervised learning?
+   a) To make predictions based on labeled data
+   b) To find patterns in unlabeled data
+   c) To learn through interaction and feedback
+
+4. What is overfitting?
+   a) When a model is too simple to capture underlying patterns
+   b) When a model performs well on training data but poorly on new data
+   c) When a model performs well on both training and test data
+
+5. Which algorithm is an example of an ensemble method?
+   a) K-Nearest Neighbors (KNN)
+   b) Decision Trees
+   c) Random Forests

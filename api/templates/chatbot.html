@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }} - Chatbot{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="flex items-center justify-between px-4 py-4">
+            <div class="flex items-center gap-4">
+                <a href="/courses" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ course.name }}</h1>
+                    <p class="text-sm text-gray-500">{{ course.code }} • {{ course.instructor }}</p>
+                </div>
+            </div>
+            <form method="POST" action="/logout">
+                <button type="submit" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto p-4 sm:p-6">
+        <!-- Course Info Card -->
+        <div class="{{ course.color }} rounded-lg p-6 mb-6 text-white">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold mb-2">Course Assistant</h2>
+                    <p class="text-white/90">Ask me anything about {{ course.name }}</p>
+                </div>
+                <svg class="h-12 w-12 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                </svg>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Left Sidebar - Course Management -->
+            <div class="lg:col-span-1 space-y-4">
+                
+                {% if user_type == 'instructor' %}
+                <!-- Instructor Control Panel -->
+                <div class="bg-white rounded-lg shadow border border-gray-200 p-4 sticky top-24">
+                    <h3 class="font-semibold text-gray-900 mb-4">Instructor Panel</h3>
+                    <div class="space-y-3">
+                        <a href="/course/{{ course.id }}/documents" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-left transition-colors">
+                            <svg class="w-6 h-6 text-[#003366]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm font-medium text-gray-800">Manage Materials</span>
+                        </a>
+                        <button onclick="editObjectives()" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-left transition-colors">
+                            <svg class="w-6 h-6 text-[#003366]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"></path></svg>
+                            <span class="text-sm font-medium text-gray-800">Edit Objectives</span>
+                        </button>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Student View: Course Materials -->
+                <div class="bg-white rounded-lg shadow border border-gray-200 p-4 sticky top-24">
+                    <h3 class="font-semibold text-gray-900 mb-4">Course Materials</h3>
+                    <div id="materialsList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-sm text-gray-500">Loading...</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Course Objectives (Modal for Instructor) -->
+                {% if user_type == 'instructor' %}
+                <div id="objectivesModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+                        <div class="flex items-center justify-between p-4 border-b">
+                            <h3 class="font-semibold">Edit Course Objectives</h3>
+                            <button onclick="cancelEditObjectives()" class="text-gray-500 hover:text-gray-700">&times;</button>
+                        </div>
+                        <div class="p-4">
+                            <textarea id="objectivesInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows="8">{{ objectives }}</textarea>
+                        </div>
+                        <div class="flex justify-end gap-2 p-4 border-t">
+                            <button onclick="cancelEditObjectives()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm">Cancel</button>
+                            <button onclick="saveObjectives()" class="bg-[#003366] text-white px-4 py-2 rounded-lg text-sm">Save</button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="lg:col-span-3">
+                <!-- Chatbot Interface -->
+                <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+            <!-- Persona Selector -->
+            <div class="bg-gray-50 border-b border-gray-200 p-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Assistant Mode:</label>
+                <select id="persona" class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent">
+                    <option value="">Default</option>
+                    <option value="tutor">Tutor (Patient & Detailed)</option>
+                    <option value="examiner">Examiner (Concise & Direct)</option>
+                    <option value="coach">Coach (Motivational)</option>
+                </select>
+                <label class="inline-flex items-center ml-4">
+                    <input type="checkbox" id="useRag" checked class="rounded border-gray-300 text-[#003366] focus:ring-[#003366]">
+                    <span class="ml-2 text-sm text-gray-700">Use Course Materials</span>
+                </label>
+            </div>
+
+            <!-- Chat Messages -->
+            <div id="chatMessages" class="h-[500px] overflow-y-auto p-6 space-y-4">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#003366] flex items-center justify-center text-white text-sm font-medium">
+                        AI
+                    </div>
+                    <div class="flex-1 bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-700">Hello! I'm your course assistant for {{ course.name }}. How can I help you today?</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="bg-gray-50 border-t border-gray-200 p-4">
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="hidden mb-3 flex items-center gap-2 text-gray-600">
+                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-sm">Thinking...</span>
+                </div>
+                
+                <form id="chatForm" class="flex gap-2">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Ask a question about the course..." 
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent"
+                        required
+                    >
+                    <button 
+                        type="submit" 
+                        id="sendButton"
+                        class="bg-[#003366] text-white px-6 py-2 rounded-lg hover:bg-[#004477] transition-colors font-medium"
+                    >
+                        Send
+                    </button>
+                </form>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script>
+const SESSION_ID = "{{ session_id }}";
+const chatForm = document.getElementById('chatForm');
+const messageInput = document.getElementById('messageInput');
+const chatMessages = document.getElementById('chatMessages');
+const sendButton = document.getElementById('sendButton');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const personaSelect = document.getElementById('persona');
+const useRagCheckbox = document.getElementById('useRag');
+
+// Configure marked for safe rendering
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
+
+function addMessage(content, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex items-start gap-3';
+    
+    if (isUser) {
+        messageDiv.innerHTML = `
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-medium">
+                You
+            </div>
+            <div class="flex-1 bg-blue-50 rounded-lg p-4">
+                <div class="text-gray-900 prose prose-sm max-w-none">${escapeHtml(content)}</div>
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#003366] flex items-center justify-center text-white text-sm font-medium">
+                AI
+            </div>
+            <div class="flex-1 bg-gray-50 rounded-lg p-4">
+                <div class="text-gray-700 prose prose-sm max-w-none">${marked.parse(content)}</div>
+            </div>
+        `;
+    }
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/\n/g, '<br>');
+}
+
+chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const message = messageInput.value.trim();
+    if (!message) return;
+    
+    // Add user message
+    addMessage(message, true);
+    messageInput.value = '';
+    
+    // Disable input
+    sendButton.disabled = true;
+    messageInput.disabled = true;
+    loadingIndicator.classList.remove('hidden');
+    
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                prompt: message,
+                session_id: SESSION_ID,
+                persona: personaSelect.value,
+                use_rag: useRagCheckbox.checked,
+                model: 'llama3.2',
+                course_id: {{ course_id }}
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Add AI response
+        if (data.response) {
+            addMessage(data.response, false);
+            
+            // Add sources if available
+            if (data.sources && data.sources.length > 0) {
+                const sourcesText = 'Sources: ' + data.sources.map((s, i) => `[${i+1}] ${s.source}`).join(', ');
+                addMessage(sourcesText, false);
+            }
+        } else {
+            addMessage('Sorry, I encountered an error. Please try again.', false);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage('Sorry, I encountered an error. Please try again.', false);
+    } finally {
+        // Re-enable input
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        loadingIndicator.classList.add('hidden');
+        messageInput.focus();
+    }
+});
+
+// Load chat history
+async function loadHistory() {
+    try {
+        const response = await fetch(`/history/{{ course_id }}/${SESSION_ID}`);
+        const data = await response.json();
+        
+        if (data.history && data.history.length > 0) {
+            data.history.forEach(item => {
+                addMessage(item.content, item.role === 'user');
+            });
+        }
+    } catch (error) {
+        console.error('Error loading history:', error);
+    }
+}
+
+// Load course materials
+async function loadMaterials() {
+    try {
+        const response = await fetch('/course/{{ course_id }}/materials');
+        const data = await response.json();
+        
+        const materialsList = document.getElementById('materialsList');
+        
+        if (data.documents && data.documents.length > 0) {
+            materialsList.innerHTML = data.documents.map(doc => `
+                <button onclick="viewDocument('${doc.name}')" class="w-full flex items-start gap-2 p-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-left transition-colors">
+                    <svg class="w-4 h-4 text-[#003366] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium text-gray-900 truncate" title="${doc.name}">${doc.name}</div>
+                        <div class="text-xs text-gray-500">${doc.chunks} chunks</div>
+                    </div>
+                </button>
+            `).join('');
+        } else {
+            materialsList.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">No materials uploaded yet</div>';
+        }
+    } catch (error) {
+        console.error('Error loading materials:', error);
+        document.getElementById('materialsList').innerHTML = '<div class="text-xs text-red-500">Error loading materials</div>';
+    }
+}
+
+// View document content
+async function viewDocument(docName) {
+    try {
+        const response = await fetch(`/course/{{ course_id }}/document/${encodeURIComponent(docName)}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert('Error loading document: ' + data.error);
+            return;
+        }
+        
+        // Create modal to display content
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <h3 class="font-semibold text-gray-900">${data.name}</h3>
+                    <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1">
+                    <pre class="whitespace-pre-wrap text-sm text-gray-700 font-mono">${data.content}</pre>
+                </div>
+                <div class="p-4 border-t border-gray-200 flex justify-end gap-2">
+                    <button onclick="downloadDocument('${data.name}', \`${data.content.replace(/`/g, '\\`')}\`)" class="px-4 py-2 bg-[#003366] text-white rounded-lg hover:bg-[#004477] text-sm">
+                        Download
+                    </button>
+                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error viewing document:', error);
+        alert('Error loading document');
+    }
+}
+
+// Download document
+function downloadDocument(filename, content) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Objectives editing
+function editObjectives() {
+    document.getElementById('objectivesModal').classList.remove('hidden');
+    document.getElementById('objectivesModal').classList.add('flex');
+}
+
+function cancelEditObjectives() {
+    document.getElementById('objectivesModal').classList.add('hidden');
+    document.getElementById('objectivesModal').classList.remove('flex');
+}
+
+async function saveObjectives() {
+    const objectives = document.getElementById('objectivesInput').value;
+    
+    try {
+        const formData = new FormData();
+        formData.append('objectives', objectives);
+        
+        const response = await fetch('/course/{{ course_id }}/objectives', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // No need to update display here, as it's not visible on instructor page
+            cancelEditObjectives();
+            // Optionally, show a success toast/notification
+            alert('Objectives saved successfully!');
+        } else {
+            alert('Error saving objectives: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving objectives:', error);
+        alert('Error saving objectives');
+    }
+}
+
+// Load history and materials on page load
+loadHistory();
+loadMaterials();
+</script>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }} - Documents{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="flex items-center justify-between px-4 py-4">
+            <div class="flex items-center gap-4">
+                <a href="/course/{{ course.id }}/chatbot" class="p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ course.name }} - Course Materials</h1>
+                    <p class="text-sm text-gray-500">{{ course.code }} • {{ course.instructor }}</p>
+                </div>
+            </div>
+            <form method="POST" action="/logout">
+                <button type="submit" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-6">
+        <!-- Upload Section (Instructors Only) -->
+        {% if user_type == 'instructor' %}
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Upload Course Materials</h2>
+            <form id="uploadForm" enctype="multipart/form-data" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Files (PDF, TXT, MD, etc.)
+                    </label>
+                    <input 
+                        type="file" 
+                        id="fileInput" 
+                        name="files" 
+                        multiple 
+                        accept=".pdf,.txt,.md,.doc,.docx"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#003366] file:text-white hover:file:bg-[#004477] file:cursor-pointer"
+                    >
+                </div>
+                <button 
+                    type="submit" 
+                    id="uploadButton"
+                    class="bg-[#003366] text-white px-6 py-2 rounded-lg hover:bg-[#004477] transition-colors font-medium"
+                >
+                    Upload Documents
+                </button>
+                <div id="uploadStatus" class="text-sm"></div>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Documents List -->
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900">Uploaded Course Materials</h2>
+                {% if user_type == 'instructor' %}
+                <button id="clearDbButton" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Clear All Materials
+                </button>
+                {% endif %}
+            </div>
+            
+            {% if documents %}
+            <div class="space-y-3">
+                {% for doc in documents %}
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-8 h-8 text-[#003366]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                        <div>
+                            <div class="font-medium text-gray-900">{{ doc.name }}</div>
+                            <div class="text-sm text-gray-500">{{ doc.chunks }} chunks indexed</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <p class="text-gray-600">No course materials uploaded yet.</p>
+                {% if user_type == 'instructor' %}
+                <p class="text-sm text-gray-500 mt-2">Upload documents above to get started.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if user_type == 'instructor' %}
+<script>
+const uploadForm = document.getElementById('uploadForm');
+const uploadButton = document.getElementById('uploadButton');
+const uploadStatus = document.getElementById('uploadStatus');
+
+uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    const files = fileInput.files;
+    
+    if (files.length === 0) {
+        uploadStatus.className = 'text-sm text-red-600';
+        uploadStatus.textContent = 'Please select at least one file.';
+        return;
+    }
+    
+    const formData = new FormData();
+    for (let file of files) {
+        formData.append('files', file);
+    }
+    
+    uploadButton.disabled = true;
+    uploadButton.textContent = 'Uploading...';
+    uploadStatus.className = 'text-sm text-blue-600';
+    uploadStatus.textContent = 'Processing files...';
+    
+    try {
+        const response = await fetch('/course/{{ course.id }}/ingest', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            uploadStatus.className = 'text-sm text-red-600';
+            uploadStatus.textContent = 'Error: ' + result.error;
+        } else {
+            uploadStatus.className = 'text-sm text-green-600';
+            uploadStatus.textContent = `Success! Indexed ${result.ingested} chunks from ${files.length} file(s).`;
+            fileInput.value = '';
+            
+            // Reload page after 2 seconds to show new documents
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }
+    } catch (error) {
+        uploadStatus.className = 'text-sm text-red-600';
+        uploadStatus.textContent = 'Error uploading files: ' + error.message;
+    } finally {
+        uploadButton.disabled = false;
+        uploadButton.textContent = 'Upload Documents';
+    }
+});
+
+// Add event listener for clearing the database
+document.getElementById('clearDbButton').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to delete all materials for this course? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/course/{{ course.id }}/rag/clear', {
+            method: 'POST'
+        });
+        const result = await response.json();
+        if (result.status === 'cleared') {
+            alert('All course materials have been cleared.');
+            window.location.reload();
+        } else {
+            alert('Error clearing materials: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('An error occurred: ' + error.message);
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

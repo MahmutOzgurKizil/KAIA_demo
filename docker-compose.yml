@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    # No host port mapping: internal-only service
+    volumes:
+      - ~/.ollama:/root/.ollama
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    restart: unless-stopped
+  api:
+    build: ./api
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - EMBED_MODEL=nomic-embed-text
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+volumes: {}

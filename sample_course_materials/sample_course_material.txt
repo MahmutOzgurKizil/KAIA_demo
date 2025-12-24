@@ -1,0 +1,43 @@
+Introduction to Machine Learning - Course Overview
+
+Module 1: Fundamentals of Machine Learning
+Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed. The course covers three main types of learning:
+
+1. Supervised Learning: Learning from labeled data to make predictions
+   - Linear Regression: Predicting continuous values
+   - Classification: Categorizing data into predefined classes
+   - Examples: House price prediction, email spam detection
+
+2. Unsupervised Learning: Finding patterns in unlabeled data
+   - Clustering: Grouping similar data points
+   - Dimensionality Reduction: Reducing feature space
+   - Examples: Customer segmentation, image compression
+
+3. Reinforcement Learning: Learning through interaction and feedback
+   - Agent-Environment interaction
+   - Reward-based learning
+   - Examples: Game playing, robotics
+
+Key Concepts:
+- Training Data: Data used to train the model
+- Test Data: Data used to evaluate model performance
+- Overfitting: When a model performs well on training data but poorly on new data
+- Underfitting: When a model is too simple to capture underlying patterns
+- Cross-validation: Technique to assess model generalization
+
+Popular Algorithms:
+- Decision Trees: Tree-based models for classification and regression
+- Neural Networks: Inspired by biological neurons
+- Support Vector Machines (SVM): Finding optimal decision boundaries
+- K-Nearest Neighbors (KNN): Classification based on proximity
+- Random Forests: Ensemble of decision trees
+
+Course Requirements:
+- Python programming knowledge
+- Basic understanding of statistics and linear algebra
+- 8 assignments throughout the semester
+- Final project demonstrating ML application
+
+Instructor: Dr. Sarah Johnson
+Office Hours: Tuesdays and Thursdays, 2-4 PM
+Email: sarah.johnson@university.edu

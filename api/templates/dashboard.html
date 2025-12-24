@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-100">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="flex items-center justify-between px-4 py-4">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="lg:hidden p-2 hover:bg-gray-100 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <h1 class="text-xl font-semibold text-gray-900">Course Dashboard</h1>
+            </div>
+            <form method="POST" action="/logout">
+                <button type="submit" class="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
+                    Logout
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform -translate-x-full lg:translate-x-0 lg:static transition-transform duration-300 mt-[65px]">
+            <nav class="p-4 space-y-2">
+                <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-gray-900 bg-gray-100 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/courses" class="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    <span>Courses</span>
+                </a>
+                <a href="/calendar" class="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span>Calendar</span>
+                </a>
+                <a href="/assignments" class="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span>Assignments</span>
+                </a>
+                <a href="/grades" class="flex items-center gap-3 px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <span>Grades</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 lg:ml-0 w-full">
+            <div class="p-4 sm:p-6">
+                <h1 class="text-2xl font-bold text-gray-900 mb-6">
+                    {% if active_tab == 'calendar' %}
+                    Calendar
+                    {% elif active_tab == 'assignments' %}
+                    All Assignments
+                    {% elif active_tab == 'grades' %}
+                    Grades
+                    {% else %}
+                    Dashboard Overview
+                    {% endif %}
+                </h1>
+                
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <p class="text-gray-600">
+                        {% if active_tab == 'calendar' %}
+                        Calendar view coming soon...
+                        {% elif active_tab == 'assignments' %}
+                        Assignments view coming soon...
+                        {% elif active_tab == 'grades' %}
+                        Grades view coming soon...
+                        {% else %}
+                        Welcome to your dashboard! Navigate to <a href="/courses" class="text-[#003366] hover:underline">Courses</a> to enter a course and start chatting with the AI assistant.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Mobile overlay -->
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-20 lg:hidden hidden" onclick="toggleSidebar()"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    sidebar.classList.toggle('-translate-x-full');
+    overlay.classList.toggle('hidden');
+}
+</script>
+{% endblock %}

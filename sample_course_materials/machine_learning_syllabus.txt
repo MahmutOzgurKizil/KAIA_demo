@@ -1,0 +1,61 @@
+Course Title: Introduction to Machine Learning
+
+Instructor: Dr. Sarah Johnson
+Email: sarah.johnson@university.edu
+Office Hours: Tuesdays and Thursdays, 2:00 PM - 4:00 PM
+Course Website: [Link to course page]
+
+Course Description:
+This course provides a comprehensive introduction to the field of machine learning. Students will learn about the fundamental concepts, algorithms, and applications of machine learning. The course will cover supervised, unsupervised, and reinforcement learning, with a focus on practical implementation and real-world problem-solving.
+
+Prerequisites:
+- Proficiency in Python programming.
+- Basic understanding of probability, statistics, and linear algebra.
+
+Textbook:
+"Pattern Recognition and Machine Learning" by Christopher M. Bishop.
+
+Grading:
+- Assignments (8): 40%
+- Midterm Exam: 25%
+- Final Project: 30%
+- Participation: 5%
+
+Schedule:
+
+Week 1-2: Introduction to Machine Learning
+- History and evolution of ML
+- Types of machine learning
+- Key terminology and concepts
+
+Week 3-5: Supervised Learning I
+- Linear Regression
+- Logistic Regression
+- K-Nearest Neighbors (KNN)
+
+Week 6-7: Supervised Learning II
+- Decision Trees and Random Forests
+- Support Vector Machines (SVM)
+- Model evaluation metrics
+
+Week 8: Midterm Exam
+
+Week 9-10: Unsupervised Learning
+- K-Means Clustering
+- Hierarchical Clustering
+- Principal Component Analysis (PCA)
+
+Week 11-12: Neural Networks and Deep Learning
+- Introduction to neural networks
+- Backpropagation
+- Convolutional Neural Networks (CNNs)
+
+Week 13-14: Reinforcement Learning
+- Markov Decision Processes
+- Q-Learning
+- Applications in robotics and gaming
+
+Week 15: Final Project Presentations
+
+Final Project:
+Students will work in teams to apply machine learning techniques to a real-world dataset. The project includes a written report and a final presentation.
