@@ -10,11 +10,17 @@ Follow these steps to get the application running.
 
 ### 1. Clone the Repository
 
-First, clone the project files to your local machine.
+First, clone the project files to your local machine with command prompt or terminal:
 
 ```sh
-git clone <your-repository-url>
-cd <project-directory>
+git clone https://github.com/MahmutOzgurKizil/KAIA_demo
+cd KAIA_demo
+```
+*If you do not have git installed, you can also download the ZIP file from the GitHub repository and extract it. Then, navigate into the project directory:*
+
+
+```sh
+cd path/to/KAIA_demo
 ```
 
 ### 2. Build and Run the Services
