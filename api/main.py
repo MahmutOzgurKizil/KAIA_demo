@@ -13,28 +13,34 @@ import asyncio
 from collections import defaultdict
 import logging
 import secrets
+from datetime import datetime
+import uuid
+import markdown2
 
 # Logging Setup 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("course-rag")
 
 # Configuration 
-PERSONAS = {
-    "tutor": "You are a patient course tutor. Explain step-by-step, use simple language, and reference course materials when relevant.",
-    "examiner": "You are a strict examiner. Provide concise answers and ask clarifying follow-ups aligned with course objectives.",
-    "coach": "You are a motivational study coach. Encourage, summarize key points, and suggest next actions."
-}
+# PERSONAS dictionary is now obsolete and replaced by dynamic persona loading.
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+
+# --- Chat History Storage ---
+HISTORY_DIR = "./chat_histories"
+if not os.path.exists(HISTORY_DIR):
+    os.makedirs(HISTORY_DIR)
 
 # Data Models 
 class ChatRequest(BaseModel):
-    model: str = "llama3.2"
+    model: str = OLLAMA_MODEL
     prompt: str
     stream: bool = False
     persona: Optional[str] = None
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None # User session
+    chat_id: Optional[str] = None # Specific chat conversation
     use_rag: bool = False
     rag_top_k: int = 4
     course_id: Optional[int] = None
@@ -42,6 +48,24 @@ class ChatRequest(BaseModel):
 class HistoryItem(BaseModel):
     role: str
     content: str
+
+class ChatSession(BaseModel):
+    id: str
+    course_id: int
+    user_id: str
+    title: str
+    last_updated: str
+    history: List[HistoryItem] = []
+
+class PersonaConfig(BaseModel):
+    name: str
+    enabled: bool
+    tone: str
+    detail: int
+    rules: str
+
+class AllPersonaConfigs(BaseModel):
+    configs: List[PersonaConfig]
 
 # App Setup 
 app = FastAPI(title="Course RAG API")
@@ -54,14 +78,68 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", sec
 # Setup templates
 templates = Jinja2Templates(directory="templates")
 
+# Custom Jinja2 filter for Markdown
+def markdown_to_html(text):
+    return markdown2.markdown(text)
+
+templates.env.filters['markdown_to_html'] = markdown_to_html
+
 if not os.path.exists("static"):
     os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-session_histories: defaultdict[str, List[HistoryItem]] = defaultdict(list)
-
 # ChromaDB Setup 
 chroma_client = chromadb.Client(Settings(anonymized_telemetry=False, is_persistent=True, persist_directory="./chroma_db"))
+
+# --- Chat History Management ---
+def get_chat_filepath(chat_id: str) -> str:
+    return os.path.join(HISTORY_DIR, f"{chat_id}.json")
+
+def save_chat_session(session: ChatSession):
+    """Saves a chat session to a JSON file."""
+    session.last_updated = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    filepath = get_chat_filepath(session.id)
+    with open(filepath, 'w') as f:
+        json.dump(session.dict(), f, indent=2)
+
+def load_chat_session(chat_id: str) -> Optional[ChatSession]:
+    """Loads a chat session from a JSON file."""
+    filepath = get_chat_filepath(chat_id)
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+            return ChatSession(**data)
+    return None
+
+def list_chat_sessions_for_course(course_id: int, user_id: str) -> List[dict]:
+    """Lists all chat sessions for a given course and user."""
+    histories = []
+    for filename in os.listdir(HISTORY_DIR):
+        if filename.endswith(".json"):
+            filepath = os.path.join(HISTORY_DIR, filename)
+            try:
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                    if data.get("course_id") == course_id and data.get("user_id") == user_id:
+                        histories.append({
+                            "id": data["id"],
+                            "title": data.get("title", "Untitled Chat"),
+                            "last_updated": data.get("last_updated")
+                        })
+            except (IOError, json.JSONDecodeError) as e:
+                logger.error(f"Error reading chat history {filename}: {e}")
+    histories.sort(key=lambda x: x.get("last_updated", ""), reverse=True)
+    return histories
+
+def delete_chat_session_file(chat_id: str, course_id: int, user_id: str):
+    """Deletes a chat session file after verifying ownership."""
+    session = load_chat_session(chat_id)
+    if session and session.course_id == course_id and session.user_id == user_id:
+        filepath = get_chat_filepath(chat_id)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return True
+    return False
 
 # Helper function to get course-specific collection
 def get_course_collection(course_id: int):
@@ -90,6 +168,24 @@ def set_course_objectives(course_id: int, text: str):
     objectives = load_objectives()
     objectives[str(course_id)] = text
     save_objectives(objectives)
+
+# Persona Config Storage
+PERSONA_CONFIG_FILE = "./persona_configs.json"
+
+def load_persona_configs():
+    if os.path.exists(PERSONA_CONFIG_FILE):
+        with open(PERSONA_CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    # Default configs
+    return {
+        "teacher": {"enabled": True, "tone": "Formal", "detail": 3, "rules": "Always provide a summary."},
+        "mentor": {"enabled": True, "tone": "Supportive", "detail": 4, "rules": "Ask follow-up questions."},
+        "coach": {"enabled": False, "tone": "Motivational", "detail": 2, "rules": "Focus on goals."}
+    }
+
+def save_persona_configs(configs):
+    with open(PERSONA_CONFIG_FILE, 'w') as f:
+        json.dump(configs, f, indent=2)
 
 # Sample Courses Data
 COURSES = [
@@ -226,25 +322,115 @@ async def course_chatbot(request: Request, course_id: int):
     if not course:
         return RedirectResponse(url="/courses", status_code=302)
     
-    session_id = request.session.get("session_id", "user-1")
-    user_type = request.session.get("user", {}).get("type", "student")
+    user = request.session.get("user", {})
+    user_id = user.get("email", "anonymous")
+    user_type = user.get("type", "student")
     
-    # Get documents for this course
+    # Instructors get a temporary, non-persistent chat session
+    if user_type == 'instructor':
+        chat_id = "instructor_temp_session"
+        # We don't save or load history for instructors, so we just redirect to a placeholder chat
+        return RedirectResponse(url=f"/course/{course_id}/chat/{chat_id}", status_code=303)
+
+    # Create a new chat session for students
+    chat_id = str(uuid.uuid4())
+    new_session = ChatSession(
+        id=chat_id,
+        course_id=course_id,
+        user_id=user_id,
+        title="New Chat Session",
+        last_updated=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    )
+    save_chat_session(new_session)
+
+    # Redirect to the new chat session's URL
+    return RedirectResponse(url=f"/course/{course_id}/chat/{chat_id}", status_code=303)
+
+@app.get("/course/{course_id}/chat/{chat_id}", response_class=HTMLResponse)
+async def course_chatbot_history(request: Request, course_id: int, chat_id: str):
+    if not request.session.get("user"):
+        return RedirectResponse(url="/", status_code=302)
+
+    course = next((c for c in COURSES if c["id"] == course_id), None)
+    if not course:
+        return RedirectResponse(url="/courses", status_code=302)
+
+    user = request.session.get("user", {})
+    user_id = user.get("email", "anonymous")
+    user_type = user.get("type", "student")
+
+    # Handle instructor's temporary chat
+    if user_type == 'instructor' and chat_id == 'instructor_temp_session':
+        return templates.TemplateResponse("chatbot.html", {
+            "request": request, "course": course, "user_type": user_type,
+            "chat_id": "instructor_temp_session", "chat_history": [],
+            "session_id": "instructor", "doc_count": get_course_collection(course_id).count(),
+            "course_id": course_id, "objectives": get_course_objectives(course_id),
+            "persona_configs": load_persona_configs()
+        })
+
+    chat_session = load_chat_session(chat_id)
+    # Security check: ensure the user owns this chat or is an instructor (who can't see history anyway)
+    if not chat_session or (user_type != 'instructor' and chat_session.user_id != user_id):
+        return RedirectResponse(url="/courses", status_code=302)
+
     collection = get_course_collection(course_id)
     doc_count = collection.count()
-    
-    # Get course objectives
     objectives = get_course_objectives(course_id)
-    
+    persona_configs = load_persona_configs()
+
     return templates.TemplateResponse("chatbot.html", {
         "request": request,
         "course": course,
-        "session_id": session_id,
+        "session_id": user_id, # Legacy, might be removable later
+        "chat_id": chat_id,
+        "chat_history": chat_session.history if user_type != 'instructor' else [],
         "user_type": user_type,
         "doc_count": doc_count,
         "course_id": course_id,
-        "objectives": objectives
+        "objectives": objectives,
+        "persona_configs": persona_configs
     })
+
+@app.get("/course/{course_id}/history", response_class=HTMLResponse)
+async def list_chats_for_course(request: Request, course_id: int):
+    if not request.session.get("user"):
+        return RedirectResponse(url="/", status_code=302)
+
+    course = next((c for c in COURSES if c["id"] == course_id), None)
+    if not course:
+        return RedirectResponse(url="/courses", status_code=302)
+    
+    user = request.session.get("user", {})
+    user_id = user.get("email", "anonymous")
+    user_type = user.get("type", "student")
+
+    # Instructors do not have a chat history page
+    if user_type == 'instructor':
+        histories = []
+    else:
+        histories = list_chat_sessions_for_course(course_id, user_id)
+
+    return templates.TemplateResponse("chat_history.html", {
+        "request": request,
+        "course": course,
+        "histories": histories,
+        "user_type": user_type
+    })
+
+@app.delete("/course/{course_id}/chat/{chat_id}")
+async def delete_chat_endpoint(request: Request, course_id: int, chat_id: str):
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse(url="/", status_code=302)
+    
+    user_id = user.get("email", "anonymous")
+    
+    if delete_chat_session_file(chat_id, course_id, user_id):
+        return {"success": True}
+    else:
+        return {"error": "Chat not found or permission denied"}, 404
+
 
 @app.get("/calendar", response_class=HTMLResponse)
 async def calendar(request: Request):
@@ -263,6 +449,29 @@ async def grades(request: Request):
     if not request.session.get("user"):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("dashboard.html", {"request": request, "active_tab": "grades"})
+
+@app.get("/persona-config", response_class=HTMLResponse)
+async def persona_config(request: Request):
+    if not request.session.get("user"):
+        return RedirectResponse(url="/", status_code=302)
+    if request.session.get("user", {}).get("type") != "instructor":
+        return RedirectResponse(url="/dashboard", status_code=302)
+    
+    configs = load_persona_configs()
+    return templates.TemplateResponse("persona_config.html", {
+        "request": request, 
+        "active_tab": "persona-config",
+        "configs": configs
+    })
+
+@app.post("/persona-config")
+async def save_persona_config_endpoint(request: Request, payload: AllPersonaConfigs):
+    if not request.session.get("user") or request.session.get("user", {}).get("type") != "instructor":
+        return {"error": "Unauthorized"}
+    
+    new_configs = {config.name.lower(): config.dict(exclude={'name'}) for config in payload.configs}
+    save_persona_configs(new_configs)
+    return {"success": True}
 
 @app.get("/course/{course_id}/documents", response_class=HTMLResponse)
 async def course_documents(request: Request, course_id: int):
@@ -409,19 +618,49 @@ async def chat(req: ChatRequest):
         
         messages = []
         
-        sys_msg = PERSONAS.get(req.persona or "", "")
-        if sys_msg or context_block or objectives_block:
-            content = sys_msg
+        # --- Dynamic Persona System Message ---
+        sys_msg_content = ""
+        if req.persona and req.persona != "default":
+            all_configs = load_persona_configs()
+            persona_config = all_configs.get(req.persona.lower())
+            if persona_config and persona_config.get("enabled"):
+                tone_map = {
+                    "Formal": "You are a formal and academic AI assistant.",
+                    "Supportive": "You are a supportive and encouraging AI mentor.",
+                    "Direct": "You are a direct and to-the-point AI assistant.",
+                    "Socratic": "You are an AI assistant that answers questions with more questions, in the Socratic style, to stimulate critical thinking."
+                }
+                detail_map = {
+                    1: "Provide a very brief, one-sentence summary.",
+                    2: "Give a concise, high-level overview.",
+                    3: "Explain the topic with moderate detail.",
+                    4: "Provide a detailed, comprehensive explanation.",
+                    5: "Offer an in-depth, expert-level explanation with nuances and examples."
+                }
+                
+                sys_msg_content += tone_map.get(persona_config.get("tone", "Supportive"), "You are a helpful AI assistant.")
+                sys_msg_content += f" {detail_map.get(persona_config.get('detail', 3), '')}"
+                if persona_config.get("rules"):
+                    sys_msg_content += f"\n\nFollow these rules strictly:\n{persona_config['rules']}"
+        
+        if not sys_msg_content:
+             sys_msg_content = "You are a helpful AI assistant." # Default fallback
+        # --- End Dynamic Persona ---
+
+        if sys_msg_content or context_block or objectives_block:
+            content = sys_msg_content
             if objectives_block:
                 content += objectives_block
             if context_block:
                 content += f"\n\nCourse Materials:\n{context_block}\nCite sources as [Source #]."
             messages.append({"role": "system", "content": content})
 
-        if req.session_id and req.course_id:
-            history_key = f"{req.session_id}-{req.course_id}"
-            for h in session_histories.get(history_key, [])[-10:]:
-                messages.append({"role": h.role, "content": h.content})
+        # Load history from file if chat_id is provided
+        if req.chat_id:
+            chat_session = load_chat_session(req.chat_id)
+            if chat_session:
+                for h in chat_session.history:
+                    messages.append({"role": h.role, "content": h.content})
 
         messages.append({"role": "user", "content": req.prompt})
 
@@ -438,19 +677,38 @@ async def chat(req: ChatRequest):
         except Exception as e:
             return {"response": f"Error: {str(e)}", "sources": []}
 
-        # 4. Save History (with course-specific key)
-        if req.session_id and req.course_id:
-            history_key = f"{req.session_id}-{req.course_id}"
-            session_histories[history_key].append(HistoryItem(role="user", content=req.prompt))
-            session_histories[history_key].append(HistoryItem(role="assistant", content=answer))
+        # 4. Save History to file (only for students)
+        if req.chat_id and req.chat_id != "instructor_temp_session":
+            chat_session = load_chat_session(req.chat_id)
+            if chat_session:
+                # Generate a title from the first user message if it's a new chat
+                if not chat_session.history:
+                    try:
+                        title_messages = [
+                            {"role": "system", "content": "You are an expert at creating short, concise titles (3-5 words) for a chat conversation based on the user's first message. Do not add quotes. Do not add any other text. Just the title."},
+                            {"role": "user", "content": req.prompt}
+                        ]
+                        title_resp = await client.post(f"{OLLAMA_HOST}/api/chat", json={
+                            "model": req.model, "messages": title_messages, "stream": False
+                        })
+                        title_resp.raise_for_status()
+                        chat_session.title = title_resp.json().get("message", {}).get("content", "Untitled Chat").strip().replace('"', '')
+                    except Exception as e:
+                        logger.error(f"Could not generate title: {e}")
+                        chat_session.title = "Chat about " + req.prompt[:20]
+
+                chat_session.history.append(HistoryItem(role="user", content=req.prompt))
+                chat_session.history.append(HistoryItem(role="assistant", content=answer))
+                save_chat_session(chat_session)
 
         return {"response": answer, "sources": rag_sources}
 
 @app.get("/history/{course_id}/{session_id}")
 async def get_history(course_id: int, session_id: str):
     """Gets chat history for a specific course and session."""
-    history_key = f"{session_id}-{course_id}"
-    return {"history": session_histories.get(history_key, [])}
+    # This endpoint is now legacy and can be removed or updated.
+    # For now, it does nothing.
+    return {"history": []}
 
 @app.post("/course/{course_id}/ingest")
 async def ingest_course_documents(course_id: int, files: List[UploadFile] = File(...)):

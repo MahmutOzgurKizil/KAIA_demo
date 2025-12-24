@@ -60,11 +60,20 @@
                     </div>
                 </div>
                 {% else %}
-                <!-- Student View: Course Materials -->
+                <!-- Student View: Course Links -->
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-4 sticky top-24">
-                    <h3 class="font-semibold text-gray-900 mb-4">Course Materials</h3>
-                    <div id="materialsList" class="space-y-2 max-h-96 overflow-y-auto">
-                        <div class="text-sm text-gray-500">Loading...</div>
+                    <h3 class="font-semibold text-gray-900 mb-4">Course Tools</h3>
+                    <div class="space-y-3">
+                        <a href="/course/{{ course.id }}/history" class="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 text-left transition-colors">
+                            <svg class="w-6 h-6 text-[#003366]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                            <span class="text-sm font-medium text-gray-800">My Chat History</span>
+                        </a>
+                        <div id="materialsList" class="space-y-2 pt-2">
+                            <h4 class="font-medium text-gray-800 text-sm px-3">Course Materials</h4>
+                            <div id="materialsContent" class="max-h-60 overflow-y-auto">
+                                <div class="text-sm text-gray-500 px-3">Loading...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endif %}
@@ -90,323 +99,242 @@
             </div>
 
             <!-- Main Chat Area -->
+                        <!-- Main Chat Area -->
             <div class="lg:col-span-3">
-                <!-- Chatbot Interface -->
-                <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-            <!-- Persona Selector -->
-            <div class="bg-gray-50 border-b border-gray-200 p-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Assistant Mode:</label>
-                <select id="persona" class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent">
-                    <option value="">Default</option>
-                    <option value="tutor">Tutor (Patient & Detailed)</option>
-                    <option value="examiner">Examiner (Concise & Direct)</option>
-                    <option value="coach">Coach (Motivational)</option>
-                </select>
-                <label class="inline-flex items-center ml-4">
-                    <input type="checkbox" id="useRag" checked class="rounded border-gray-300 text-[#003366] focus:ring-[#003366]">
-                    <span class="ml-2 text-sm text-gray-700">Use Course Materials</span>
-                </label>
-            </div>
-
-            <!-- Chat Messages -->
-            <div id="chatMessages" class="h-[500px] overflow-y-auto p-6 space-y-4">
-                <div class="flex items-start gap-3">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#003366] flex items-center justify-center text-white text-sm font-medium">
-                        AI
+                <div class="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden flex flex-col" style="height: 75vh;">
+                    <!-- Persona Selector -->
+                    <div class="bg-gray-50 border-b border-gray-200 p-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Assistant Mode:</label>
+                                <select id="persona-select" class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent text-sm">
+                                    <option value="default">Default</option>
+                                    {% for name, config in persona_configs.items() %}
+                                        {% if config.enabled %}
+                                            <option value="{{ name }}">{{ name.title() }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            {% if user_type == 'instructor' %}
+                            <a href="/persona-config" class="text-sm text-[#003366] hover:underline font-medium">Configure Personas</a>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="flex-1 bg-gray-50 rounded-lg p-4">
-                        <p class="text-gray-700">Hello! I'm your course assistant for {{ course.name }}. How can I help you today?</p>
+
+                    <!-- Chat History Display -->
+                    <div id="chat-history" class="flex-1 p-6 space-y-6 overflow-y-auto">
+                        {% for message in chat_history %}
+                            {% if message.role == 'user' %}
+                            <div class="flex items-start gap-3 justify-end">
+                                <div class="bg-blue-600 text-white p-3 rounded-lg max-w-xl">
+                                    <p class="text-sm">{{ message.content }}</p>
+                                </div>
+                            </div>
+                            {% elif message.role == 'assistant' %}
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center font-semibold text-white text-sm flex-shrink-0">AI</div>
+                                <div class="bg-white border border-gray-200 p-3 rounded-lg max-w-xl prose prose-sm">
+                                    {{ message.content | markdown_to_html | safe }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                        <div class="text-center text-gray-500 py-8 h-full flex flex-col justify-center items-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">Start a conversation</h3>
+                            <p class="mt-1 text-sm text-gray-500">Ask a question about {{ course.name }} to get started.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="bg-white border-t border-gray-200 p-4">
+                        <form id="chat-form" class="relative">
+                            <textarea id="chat-input" placeholder="Ask a question..." class="w-full pl-4 pr-36 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition text-sm resize-none" rows="1"></textarea>
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                <div class="flex items-center gap-2 border-r pr-2">
+                                    <input type="checkbox" id="rag-toggle" class="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" checked>
+                                    <label for="rag-toggle" class="text-xs text-gray-600 font-medium">Search Materials</label>
+                                </div>
+                                <button id="send-btn" type="submit" class="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:bg-blue-300">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="bg-gray-50 border-t border-gray-200 p-4">
-                <!-- Loading Indicator -->
-                <div id="loadingIndicator" class="hidden mb-3 flex items-center gap-2 text-gray-600">
-                    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="text-sm">Thinking...</span>
-                </div>
-                
-                <form id="chatForm" class="flex gap-2">
-                    <input 
-                        type="text" 
-                        id="messageInput" 
-                        placeholder="Ask a question about the course..." 
-                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003366] focus:border-transparent"
-                        required
-                    >
-                    <button 
-                        type="submit" 
-                        id="sendButton"
-                        class="bg-[#003366] text-white px-6 py-2 rounded-lg hover:bg-[#004477] transition-colors font-medium"
-                    >
-                        Send
-                    </button>
-                </form>
-            </div>
-        </div>
             </div>
         </div>
     </div>
 </div>
+
+
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 <script>
-const SESSION_ID = "{{ session_id }}";
-const chatForm = document.getElementById('chatForm');
-const messageInput = document.getElementById('messageInput');
-const chatMessages = document.getElementById('chatMessages');
-const sendButton = document.getElementById('sendButton');
-const loadingIndicator = document.getElementById('loadingIndicator');
-const personaSelect = document.getElementById('persona');
-const useRagCheckbox = document.getElementById('useRag');
+document.addEventListener('DOMContentLoaded', () => {
+    const chatHistory = document.getElementById('chat-history');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const ragToggle = document.getElementById('rag-toggle');
+    const personaSelect = document.getElementById('persona-select');
 
-// Configure marked for safe rendering
-marked.setOptions({
-    breaks: true,
-    gfm: true
-});
+    const courseId = {{ course.id }};
+    const sessionId = "{{ session_id }}";
+    const chatId = "{{ chat_id }}";
 
-function addMessage(content, isUser = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'flex items-start gap-3';
-    
-    if (isUser) {
-        messageDiv.innerHTML = `
-            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-medium">
-                You
-            </div>
-            <div class="flex-1 bg-blue-50 rounded-lg p-4">
-                <div class="text-gray-900 prose prose-sm max-w-none">${escapeHtml(content)}</div>
-            </div>
-        `;
-    } else {
-        messageDiv.innerHTML = `
-            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#003366] flex items-center justify-center text-white text-sm font-medium">
-                AI
-            </div>
-            <div class="flex-1 bg-gray-50 rounded-lg p-4">
-                <div class="text-gray-700 prose prose-sm max-w-none">${marked.parse(content)}</div>
-            </div>
-        `;
-    }
-    
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+    // Auto-scroll to the bottom
+    chatHistory.scrollTop = chatHistory.scrollHeight;
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML.replace(/\n/g, '<br>');
-}
-
-chatForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const message = messageInput.value.trim();
-    if (!message) return;
-    
-    // Add user message
-    addMessage(message, true);
-    messageInput.value = '';
-    
-    // Disable input
-    sendButton.disabled = true;
-    messageInput.disabled = true;
-    loadingIndicator.classList.remove('hidden');
-    
-    try {
-        const response = await fetch('/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: message,
-                session_id: SESSION_ID,
-                persona: personaSelect.value,
-                use_rag: useRagCheckbox.checked,
-                model: 'llama3.2',
-                course_id: {{ course_id }}
-            })
-        });
-        
-        const data = await response.json();
-        
-        // Add AI response
-        if (data.response) {
-            addMessage(data.response, false);
-            
-            // Add sources if available
-            if (data.sources && data.sources.length > 0) {
-                const sourcesText = 'Sources: ' + data.sources.map((s, i) => `[${i+1}] ${s.source}`).join(', ');
-                addMessage(sourcesText, false);
-            }
-        } else {
-            addMessage('Sorry, I encountered an error. Please try again.', false);
+    // Auto-resize textarea
+    chatInput.addEventListener('input', () => {
+        chatInput.style.height = 'auto';
+        chatInput.style.height = (chatInput.scrollHeight) + 'px';
+    });
+     chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            chatForm.requestSubmit();
         }
-    } catch (error) {
-        console.error('Error:', error);
-        addMessage('Sorry, I encountered an error. Please try again.', false);
-    } finally {
-        // Re-enable input
-        sendButton.disabled = false;
-        messageInput.disabled = false;
-        loadingIndicator.classList.add('hidden');
-        messageInput.focus();
-    }
-});
+    });
 
-// Load chat history
-async function loadHistory() {
-    try {
-        const response = await fetch(`/history/{{ course_id }}/${SESSION_ID}`);
-        const data = await response.json();
-        
-        if (data.history && data.history.length > 0) {
-            data.history.forEach(item => {
-                addMessage(item.content, item.role === 'user');
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prompt = chatInput.value.trim();
+        if (!prompt) return;
+
+        // Clear the "start a conversation" message if it exists
+        const emptyState = chatHistory.querySelector('.text-center.text-gray-500');
+        if (emptyState) {
+            emptyState.parentElement.removeChild(emptyState);
+        }
+
+        // Disable form
+        chatInput.value = '';
+        chatInput.style.height = 'auto';
+        sendBtn.disabled = true;
+        const originalButtonContent = sendBtn.innerHTML;
+        sendBtn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v.01M12 20v.01M4 12h.01M20 12h.01M6.31 6.31l.01.01M17.69 17.69l.01.01M6.31 17.69l.01-.01M17.69 6.31l.01-.01"></path></svg>';
+
+        // Add user message to UI
+        const userMessageEl = document.createElement('div');
+        userMessageEl.className = 'flex items-start gap-3 justify-end';
+        userMessageEl.innerHTML = `
+            <div class="bg-blue-600 text-white p-3 rounded-lg max-w-xl">
+                <p class="text-sm">${prompt.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+            </div>
+        `;
+        chatHistory.appendChild(userMessageEl);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        // Add placeholder for AI response
+        const aiMessageEl = document.createElement('div');
+        aiMessageEl.className = 'flex items-start gap-3';
+        aiMessageEl.innerHTML = `
+            <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center font-semibold text-white text-sm flex-shrink-0">AI</div>
+            <div class="bg-white border border-gray-200 p-3 rounded-lg max-w-xl prose prose-sm animate-pulse">
+                Thinking...
+            </div>
+        `;
+        chatHistory.appendChild(aiMessageEl);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    persona: personaSelect.value,
+                    use_rag: ragToggle.checked,
+                    course_id: courseId,
+                    session_id: sessionId,
+                    chat_id: chatId
+                })
             });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            const formattedResponse = marked.parse(data.response);
+
+            const responseContent = aiMessageEl.querySelector('.prose');
+            responseContent.innerHTML = formattedResponse;
+            responseContent.classList.remove('animate-pulse');
+
+        } catch (error) {
+            console.error('Chat error:', error);
+            const errorContent = aiMessageEl.querySelector('.prose');
+            errorContent.innerHTML = '<p class="text-red-500">Sorry, something went wrong. Please try again.</p>';
+            errorContent.classList.remove('animate-pulse');
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalButtonContent;
+            chatInput.focus();
         }
-    } catch (error) {
-        console.error('Error loading history:', error);
+    });
+
+    // Enable send button only when there is text
+    chatInput.addEventListener('input', () => {
+        sendBtn.disabled = chatInput.value.trim().length === 0;
+    });
+    sendBtn.disabled = true; // Initially disabled
+
+    // Instructor objective editing
+    {% if user_type == 'instructor' %}
+    window.editObjectives = () => {
+        document.getElementById('objectivesModal').classList.remove('hidden');
+        document.getElementById('objectivesModal').classList.add('flex');
     }
-}
-
-// Load course materials
-async function loadMaterials() {
-    try {
-        const response = await fetch('/course/{{ course_id }}/materials');
-        const data = await response.json();
-        
-        const materialsList = document.getElementById('materialsList');
-        
-        if (data.documents && data.documents.length > 0) {
-            materialsList.innerHTML = data.documents.map(doc => `
-                <button onclick="viewDocument('${doc.name}')" class="w-full flex items-start gap-2 p-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 text-left transition-colors">
-                    <svg class="w-4 h-4 text-[#003366] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                    </svg>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-xs font-medium text-gray-900 truncate" title="${doc.name}">${doc.name}</div>
-                        <div class="text-xs text-gray-500">${doc.chunks} chunks</div>
-                    </div>
-                </button>
-            `).join('');
-        } else {
-            materialsList.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">No materials uploaded yet</div>';
-        }
-    } catch (error) {
-        console.error('Error loading materials:', error);
-        document.getElementById('materialsList').innerHTML = '<div class="text-xs text-red-500">Error loading materials</div>';
+    window.cancelEditObjectives = () => {
+        document.getElementById('objectivesModal').classList.add('hidden');
+        document.getElementById('objectivesModal').classList.remove('flex');
     }
-}
-
-// View document content
-async function viewDocument(docName) {
-    try {
-        const response = await fetch(`/course/{{ course_id }}/document/${encodeURIComponent(docName)}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            alert('Error loading document: ' + data.error);
-            return;
-        }
-        
-        // Create modal to display content
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4';
-        modal.innerHTML = `
-            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-                <div class="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h3 class="font-semibold text-gray-900">${data.name}</h3>
-                    <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                <div class="p-4 overflow-y-auto flex-1">
-                    <pre class="whitespace-pre-wrap text-sm text-gray-700 font-mono">${data.content}</pre>
-                </div>
-                <div class="p-4 border-t border-gray-200 flex justify-end gap-2">
-                    <button onclick="downloadDocument('${data.name}', \`${data.content.replace(/`/g, '\\`')}\`)" class="px-4 py-2 bg-[#003366] text-white rounded-lg hover:bg-[#004477] text-sm">
-                        Download
-                    </button>
-                    <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    } catch (error) {
-        console.error('Error viewing document:', error);
-        alert('Error loading document');
-    }
-}
-
-// Download document
-function downloadDocument(filename, content) {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// Objectives editing
-function editObjectives() {
-    document.getElementById('objectivesModal').classList.remove('hidden');
-    document.getElementById('objectivesModal').classList.add('flex');
-}
-
-function cancelEditObjectives() {
-    document.getElementById('objectivesModal').classList.add('hidden');
-    document.getElementById('objectivesModal').classList.remove('flex');
-}
-
-async function saveObjectives() {
-    const objectives = document.getElementById('objectivesInput').value;
-    
-    try {
-        const formData = new FormData();
-        formData.append('objectives', objectives);
-        
-        const response = await fetch('/course/{{ course_id }}/objectives', {
+    window.saveObjectives = async () => {
+        const objectives = document.getElementById('objectivesInput').value;
+        const response = await fetch(`/course/${courseId}/objectives`, {
             method: 'POST',
-            body: formData
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: `objectives=${encodeURIComponent(objectives)}`
         });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // No need to update display here, as it's not visible on instructor page
-            cancelEditObjectives();
-            // Optionally, show a success toast/notification
-            alert('Objectives saved successfully!');
+        if (response.ok) {
+            window.cancelEditObjectives();
+            // Maybe show a success message
         } else {
-            alert('Error saving objectives: ' + (data.error || 'Unknown error'));
+            alert('Failed to save objectives.');
         }
-    } catch (error) {
-        console.error('Error saving objectives:', error);
-        alert('Error saving objectives');
-    }
-}
+    };
+    {% endif %}
 
-// Load history and materials on page load
-loadHistory();
-loadMaterials();
+    // Fetch and display course materials
+    async function fetchMaterials() {
+        const container = document.getElementById('materialsContent');
+        if (!container) return;
+
+        try {
+            const response = await fetch(`/course/${courseId}/materials`);
+            const data = await response.json();
+            
+            if (data.documents && data.documents.length > 0) {
+                container.innerHTML = data.documents.map(doc => `
+                    <a href="#" class="block text-sm text-gray-700 p-2 rounded-md hover:bg-gray-200">${doc.name}</a>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-sm text-gray-500 px-3">No materials uploaded.</div>';
+            }
+        } catch (error) {
+            console.error('Error fetching materials:', error);
+            container.innerHTML = '<div class="text-sm text-red-500 px-3">Error loading materials.</div>';
+        }
+    }
+    fetchMaterials();
+});
 </script>
 {% endblock %}
